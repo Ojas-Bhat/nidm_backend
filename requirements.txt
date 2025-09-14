@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+pymupdf
+pillow
+pytesseract
+python-multipart
+python-dotenv
