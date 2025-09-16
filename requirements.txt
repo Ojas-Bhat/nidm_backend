@@ -6,3 +6,5 @@ pillow
 pytesseract
 python-multipart
 python-dotenv
+faiss-cpu
+sentence-transformers

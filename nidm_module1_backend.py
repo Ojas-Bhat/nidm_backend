@@ -200,7 +200,9 @@ def process_pdf_and_store(article_id: int, pdf_path: str):
 # ---------------------------
 
 @app.post("/upload_pdf")
-def upload_pdf(background_tasks: BackgroundTasks, file: UploadFile = File(...), title: Optional[str] = None, authors: Optional[str] = None, year: Optional[int] = None, source: Optional[str] = None):
+def upload_pdf(background_tasks: BackgroundTasks, file: UploadFile = File(...),
+               title: Optional[str] = None, authors: Optional[str] = None,
+               year: Optional[int] = None, source: Optional[str] = None):
     # Basic validation
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
@@ -220,10 +222,17 @@ def upload_pdf(background_tasks: BackgroundTasks, file: UploadFile = File(...), 
         session.refresh(article)
         article_id = article.id
 
-    # Process in background
+    # Extract + clean text immediately for FAISS indexing
+    raw_text = extract_text_from_pdf(dest_path)
+    cleaned_text = clean_text(raw_text)
+
+    # 🔹 Add document into FAISS index
+    add_document(str(article_id), cleaned_text)
+
+    # Process in background for sections + metadata enrichment
     background_tasks.add_task(process_pdf_and_store, article_id, dest_path)
 
-    return JSONResponse({"status": "processing", "article_id": article_id, "uuid": article.uuid})
+    return JSONResponse({"status": "processing + indexed", "article_id": article_id, "uuid": article.uuid})
 
 
 @app.get("/articles")
@@ -288,3 +297,19 @@ def health():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("nidm_module1_backend:app", host="0.0.0.0", port=8000, reload=True)
+
+
+
+
+#new aiss module end point;
+from faiss_indexer import add_document, search
+
+@app.post("/add_to_index/")
+def add_to_index(doc_id: str, text: str):
+    add_document(doc_id, text)
+    return {"message": f"Document {doc_id} added to FAISS index"}
+
+@app.get("/search/")
+def search_index(query: str, top_k: int = 3):
+    results = search(query, top_k)
+    return {"results": results}
